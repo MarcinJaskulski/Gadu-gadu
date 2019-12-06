@@ -16,7 +16,7 @@
 #define SERVER_PORT 1234
 #define QUEUE_SIZE 5
 
-int logIn[100];
+int logIn[100]; //main i wskaźnik
 
 int idDeskryptor[100];
 
@@ -81,9 +81,9 @@ void *SendThreadBehavior(void *t_data)
 }
 void handleWrite(struct thread_data_t *sendData)
 {
-
+    printf("%s\n",sendData->idFirst);
     pthread_t sendThread;
-    int create_result = pthread_create(&sendThread, NULL, SendThreadBehavior, (void *)&sendData);
+    int create_result = pthread_create(&sendThread, NULL, SendThreadBehavior, (void *)sendData);
     if (create_result)
     {
         printf("Błąd przy próbie utworzenia wątku, kod błędu: %d\n", create_result);
@@ -96,12 +96,12 @@ void *ReadThreadBehavior(void *t_data)
 {
     pthread_detach(pthread_self());
     struct thread_data_t *th_data = (struct thread_data_t *)t_data;
-    struct thread_data_t *sendData;
+    struct thread_data_t *sendData=malloc(sizeof(struct thread_data_t));
     int n = 0;
     char bufMes[1000];
+    printf("%d\n",th_data->nr_deskryptora);
     while (1)
     {
-        printf("petla read\n");
         n = read((*th_data).nr_deskryptora, &bufMes, sizeof(bufMes));
         if (n > 0)
         {
@@ -119,6 +119,7 @@ void *ReadThreadBehavior(void *t_data)
             memcpy(sendData->idFirst, th_data->idFirst, sizeof(sendData->idFirst));
             memcpy(sendData->idSecond, th_data->idSecond, sizeof(sendData->idSecond));
             memcpy(sendData->message, th_data->message, sizeof(sendData->message));
+            printf("SendData: %s\n", sendData->message);
             handleWrite(sendData);
         }
         n = 0;
@@ -126,6 +127,8 @@ void *ReadThreadBehavior(void *t_data)
 
     printf("Desk: %s\n", (*th_data).idFirst);
     logIn[(*th_data).nr_deskryptora] = 0;
+    free(t_data);
+    free(sendData);
     pthread_exit(NULL);
 }
 
@@ -134,11 +137,12 @@ void handleConnection(int connection_socket_descriptor)
 { //, int* tab) {
     //uchwyt na wątek
     int create_result;
-    struct thread_data_t t_data;
+    
+    struct thread_data_t *t_data=malloc(sizeof(struct thread_data_t)); //malloc + zwolnienie na końcu (watek klienta)
     pthread_t readThread;
-    t_data.nr_deskryptora = connection_socket_descriptor;
+    t_data->nr_deskryptora = connection_socket_descriptor;
 
-    create_result = pthread_create(&readThread, NULL, ReadThreadBehavior, (void *)&t_data);
+    create_result = pthread_create(&readThread, NULL, ReadThreadBehavior, (void *)t_data);
     if (create_result)
     {
         printf("Błąd przy próbie utworzenia wątku, kod błędu: %d\n", create_result);
