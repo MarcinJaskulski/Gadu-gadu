@@ -51,16 +51,16 @@ void handleConnection(int connection_socket_descriptor)
    printf("HC\n");
    //uchwyt na wątek
    pthread_t thread1;
-   int id;
-   printf("Podaj swoje ID:\n");
-   scanf("%d", &id);
-   //dane, które zostaną przekazane do wątku
-   struct thread_data_t t_data;
-   //TODO
+   // int id;
+   // printf("Podaj swoje ID:\n");
+   // scanf("%d", &id);
+   // //dane, które zostaną przekazane do wątku
+    struct thread_data_t t_data;
+   // //TODO
    t_data.nr_deskryptora = connection_socket_descriptor;
-   printf("ID: %d\n", id);
-   write(connection_socket_descriptor, &id, sizeof(id));
-   printf("wyslano id\n");
+   // printf("ID: %d\n", id);
+   // write(connection_socket_descriptor, &id, sizeof(id));
+   // printf("wyslano id\n");
    create_result = pthread_create(&thread1, NULL, ThreadBehavior, (void *)&t_data);
    if (create_result)
    {

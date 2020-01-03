@@ -20,6 +20,7 @@ int logIn[100]; //main i wskaźnik
 
 int idDeskryptor[100];
 
+
 //struktura zawierająca dane, które zostaną przekazane do wątku
 struct thread_data_t
 {
@@ -60,6 +61,33 @@ int charToInt(char tab[4])
     return res;
 }
 
+
+// void SendWhoIs(void *t_data)
+// {
+//     struct thread_data_t *th_data = (struct thread_data_t *)t_data;
+//     printf("Send: %d \n", charToInt((*th_data).idSecond));
+//     while (logIn[charToInt((*th_data).idSecond)] == 0)
+//     {
+//         // printf("uzytkownik nie jest zalogowany");
+//     }
+
+//     if (logIn[charToInt((*th_data).idSecond)] == 1)
+//     {
+
+//         int deskryptor = idDeskryptor[charToInt((*th_data).idSecond)];
+
+//         write(deskryptor, (*th_data).message, sizeof((*th_data).message));
+//         printf("Mes: %s\n", (*th_data).message);
+//     }
+// }
+
+// void loginOnServer(){
+//     int id = 
+// }
+
+
+
+
 void *SendThreadBehavior(void *t_data)
 {
     struct thread_data_t *th_data = (struct thread_data_t *)t_data;
@@ -79,6 +107,7 @@ void *SendThreadBehavior(void *t_data)
     }
     pthread_exit(NULL);
 }
+
 void handleWrite(struct thread_data_t *sendData)
 {
     printf("%s\n",sendData->idFirst);
@@ -199,7 +228,7 @@ int main(int argc, char *argv[])
         exit(1);
     }
 
-    int clientId;
+    int clientId = 0;
     //accepted client
     while (1)
     {
@@ -210,13 +239,19 @@ int main(int argc, char *argv[])
             exit(1);
         }
 
-        read(connection_socket_descriptor, &clientId, sizeof(clientId));
+        //nasłuchiwanie na nowego clienta. Jesli jest nowy to stworzy mu watek
+        read(connection_socket_descriptor, NULL, 0);
         printf("Client id: %d\n", clientId);
-        logIn[clientId] = 1;
+        logIn[clientId] = 1; //podanie, ze jest zalogowany
 
-        idDeskryptor[clientId] = connection_socket_descriptor;
+
+
+        
+
+        idDeskryptor[clientId] = connection_socket_descriptor; //zapisanie w tablicy deskryptorow
 
         handleConnection(connection_socket_descriptor); //, tab);
+        clientId++;
     }
 
     close(server_socket_descriptor);
