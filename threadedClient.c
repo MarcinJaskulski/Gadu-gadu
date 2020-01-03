@@ -24,9 +24,7 @@ struct thread_data_t
 void *ThreadBehavior(void *t_data)
 {
    struct thread_data_t *th_data = (struct thread_data_t *)t_data;
-   //dostęp do pól struktury: (*th_data).pole
    //TODO (przy zadaniu 1) klawiatura -> wysyłanie albo odbieranie -> wyświetlanie
-   printf("THREAD\n");
 
    while (1)
    {
@@ -48,25 +46,23 @@ void handleConnection(int connection_socket_descriptor)
    int create_result = 0;
    int n = 0;
    char buf[100];
-   printf("HC\n");
    //uchwyt na wątek
    pthread_t thread1;
-   // int id;
-   // printf("Podaj swoje ID:\n");
-   // scanf("%d", &id);
+
    // //dane, które zostaną przekazane do wątku
     struct thread_data_t t_data;
    // //TODO
    t_data.nr_deskryptora = connection_socket_descriptor;
-   // printf("ID: %d\n", id);
-   // write(connection_socket_descriptor, &id, sizeof(id));
-   // printf("wyslano id\n");
+
    create_result = pthread_create(&thread1, NULL, ThreadBehavior, (void *)&t_data);
    if (create_result)
    {
       printf("Błąd przy próbie utworzenia wątku, kod błędu: %d\n", create_result);
       exit(-1);
    }
+  
+
+   
    while (1)
    {
       n = read(connection_socket_descriptor, buf, sizeof(buf));
