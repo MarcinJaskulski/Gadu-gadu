@@ -25,9 +25,6 @@ struct thread_data_t
 {
     int id;
     int nr_deskryptora;
-    char wiadomosc1[1024];
-    char wiadomosc2[1024];
-    int *tab;
 
     char idFirst[4];
     char idSecond[4];
