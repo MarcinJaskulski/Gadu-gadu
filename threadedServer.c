@@ -15,37 +15,20 @@
 
 #define SERVER_PORT 1234
 #define QUEUE_SIZE 5
+#define NUMBER_OF_USERS 100
 
-int logIn[100]; //main i wskaźnik
+//int logIn[100]; //main i wskaźnik
 
-int idDeskryptor[100];
-
-//    // --- PAMIEC WSPOLDZIELONA ---
-//    // -- Dla logIn
-//    shmid = shmget(IPC_PRIVATE, 100*sizeof(int), IPC_CREAT|0600);
-//    if (shmid == -1){
-//       perror("Blad: Utworzenie segmentu pamieci wspoldzielonej");
-//       exit(1);
-//    }
-   
-//    buf = (int*)shmat(shmid, NULL, 0);
-//    if (buf == NULL){
-//       perror("Blad: Przylaczenie segmentu pamieci wspoldzielonej");
-//       exit(1);
-//    }
-   
-//    buf[0] = 0; // ilosc wyprodukowanych dziel
-//    buf[1] = 0; // startowa liczba osob w czytelnii
-//    buf[2] = 0; // liczba dziel na polce
-
-
-
+//int idDeskryptor[100];
 
 //struktura zawierająca dane, które zostaną przekazane do wątku
 struct thread_data_t
 {
     int id;
     int nr_deskryptora;
+
+    int *logIn;
+    int *idDeskryptor;
 
     char idFirst[4];
     char idSecond[4];
@@ -80,7 +63,7 @@ int charToInt(char tab[4])
 }
 
 // funkcja rozgłasza kto jest obecnie podłaczony do serwera
-void whoIs(int id, int deskryptor){
+void whoIs(int id, int deskryptor, int *logIn, int *idDeskryptor){
     int n = 0;
     char c[15] = "";
     char tc[15] = "";
@@ -89,25 +72,28 @@ void whoIs(int id, int deskryptor){
     strcat(c, tc);
     strcat(c, "}\n");
     printf("%s\n", c);
-    n = write(deskryptor, c, sizeof(c));
 
+    n = write(deskryptor, c, sizeof(c));
     if(n < 0){
         fprintf(stderr, "Niepoprawne wyslanie wiadomosci.\n");
     }
 
     char friends[50];
     strcat(friends,"#friends{");
-    for(int i=0; i<sizeof(logIn)/sizeof(logIn[0]); i++){
+
+    for(int i=0; i<NUMBER_OF_USERS; i++){
         if(logIn[i] == 1){
             sprintf(c, "%d", i);
             strcat(friends, c);
             strcat(friends, ";");
         }
     }
+    
     strcat(friends,"}\n");
     printf("%s\n", friends);
 
-    for(int i=0; i<sizeof(logIn)/sizeof(logIn[0]); i++){
+    for(int i=0; i<NUMBER_OF_USERS; i++){
+        
         if(logIn[i] == 1){
             n = write(idDeskryptor[i], friends, sizeof(friends));
             if(n < 0){
@@ -118,7 +104,7 @@ void whoIs(int id, int deskryptor){
 }
 
 // wysyłanie wiadomości
-void handleWrite(struct thread_data_t *sendData)
+void handleWrite(struct thread_data_t *sendData, int *logIn, int *idDeskryptor)
 {
     //printf("%s\n",sendData->idFirst);
     int n = 0;
@@ -147,15 +133,18 @@ void handleWrite(struct thread_data_t *sendData)
 //funkcja opisującą zachowanie wątku - musi przyjmować argument typu (void *) i zwracać (void *)
 void *ReadThreadBehavior(void *t_data)
 {
+    
     pthread_detach(pthread_self());
     struct thread_data_t *th_data = (struct thread_data_t *)t_data;
     struct thread_data_t *sendData = malloc(sizeof(struct thread_data_t));
+    int *logIn =th_data->logIn;
+    int *idDeskryptor = th_data->idDeskryptor;
     int n = 0;
     char bufMes[1000];
     printf("%d\n",th_data->nr_deskryptora);
 
     // zanim watek bedzie czekal na info o wiadomosciach, to wysyla odpowedz do zalogowania
-    whoIs(th_data->id, (*th_data).nr_deskryptora);
+    whoIs(th_data->id, (*th_data).nr_deskryptora, logIn, idDeskryptor);
 
 
 
@@ -186,7 +175,7 @@ void *ReadThreadBehavior(void *t_data)
             memcpy(sendData->idSecond, th_data->idSecond, sizeof(sendData->idSecond));            
             memcpy(sendData->message, th_data->message, sizeof(sendData->message));
             //printf("SendData2: %s\n", sendData->message);
-            handleWrite(sendData);
+            handleWrite(sendData, logIn, idDeskryptor);
         }
         // nastąpiło rozłaczenie
         if(n == 0){
@@ -201,7 +190,7 @@ void *ReadThreadBehavior(void *t_data)
 
     printf("Desk: %s\n", (*th_data).idFirst);
     logIn[(*th_data).id] = 0;
-    whoIs(-1, (*th_data).nr_deskryptora);
+    whoIs(-1, (*th_data).nr_deskryptora, logIn, idDeskryptor);
 
     free(t_data);
     free(sendData); 
@@ -210,7 +199,7 @@ void *ReadThreadBehavior(void *t_data)
 }
 
 //funkcja obsługująca połączenie z nowym klientem
-void handleConnection(int connection_socket_descriptor, int id)
+void handleConnection(int connection_socket_descriptor, int id, int *logIn, int *idDeskryptor)
 {
     //uchwyt na wątek
     int create_result = 0;
@@ -219,6 +208,8 @@ void handleConnection(int connection_socket_descriptor, int id)
     pthread_t readThread;
     t_data->nr_deskryptora = connection_socket_descriptor;
     t_data->id = id;
+    t_data->logIn = logIn;
+    t_data->idDeskryptor = idDeskryptor;
 
 
     create_result = pthread_create(&readThread, NULL, ReadThreadBehavior, (void *)t_data);
@@ -229,9 +220,9 @@ void handleConnection(int connection_socket_descriptor, int id)
     }
 }
 
-void init()
+void init(int *logIn, int *idDeskryptor)
 {
-    for (int i = 0; i < sizeof(logIn) / sizeof(logIn[0]); i++)
+    for (int i = 0; i < NUMBER_OF_USERS; i++)
     {
         logIn[i] = 0;
         idDeskryptor[i] = 0;
@@ -240,7 +231,9 @@ void init()
 
 int main(int argc, char *argv[])
 {
-    init();
+    int *logIn = malloc(NUMBER_OF_USERS * sizeof(int));
+    int *idDeskryptor = malloc(NUMBER_OF_USERS * sizeof(int));
+    init(logIn, idDeskryptor);
 
     int server_socket_descriptor;
     int connection_socket_descriptor;
@@ -320,11 +313,14 @@ int main(int argc, char *argv[])
 
         idDeskryptor[clientId] = connection_socket_descriptor; //zapisanie w tablicy deskryptorow
 
-        handleConnection(connection_socket_descriptor, clientId);
+        handleConnection(connection_socket_descriptor, clientId, logIn, idDeskryptor);
 
     }
 
     close(server_socket_descriptor);
+
+    free(logIn);
+    free(idDeskryptor);
 
     return (0);
 }
