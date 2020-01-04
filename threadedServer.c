@@ -61,65 +61,55 @@ int charToInt(char tab[4])
     return res;
 }
 
+void whoIs(int id, int deskryptor){
+    char c[15] = "";
+    char tc[15] = "";
+    strcat(c, "#yourId{");
+    sprintf(tc, "%d", id);
+    strcat(c, tc);
+    strcat(c, "}\n");
+    printf("%s\n", c);
+    write(deskryptor, c, sizeof(c));
 
+    char friends[50];
+    strcat(friends,"#friends{");
+    for(int i=0; i<sizeof(logIn)/sizeof(logIn[0]); i++){
+        if(logIn[i] == 1){
+            sprintf(c, "%d", i);
+            strcat(friends, c);
+            strcat(friends, ";");
+        }
+    }
+    strcat(friends,"}\n");
+    printf("%s\n", friends);
 
-
-// void SendWhoIs(void *t_data)
-// {
-//     struct thread_data_t *th_data = (struct thread_data_t *)t_data;
-//     printf("Send: %d \n", charToInt((*th_data).idSecond));
-//     while (logIn[charToInt((*th_data).idSecond)] == 0)
-//     {
-//         // printf("uzytkownik nie jest zalogowany");
-//     }
-
-//     if (logIn[charToInt((*th_data).idSecond)] == 1)
-//     {
-
-//         int deskryptor = idDeskryptor[charToInt((*th_data).idSecond)];
-
-//         write(deskryptor, (*th_data).message, sizeof((*th_data).message));
-//         printf("Mes: %s\n", (*th_data).message);
-//     }
-// }
-
-void userOnServer(){
-    //int id = 
+    for(int i=0; i<sizeof(logIn)/sizeof(logIn[0]); i++){
+        if(logIn[i] == 1){
+            write(idDeskryptor[i], friends, sizeof(friends));
+        }
+    }
 }
 
-
-
-
-// void SendThreadBehavior(void *t_data)
-// {
-//     struct thread_data_t *th_data = (struct thread_data_t *)t_data;
-//     printf("Send: %d \n", charToInt((*th_data).idSecond));
-//     while (logIn[charToInt((*th_data).idSecond)] == 0)
-//     {
-//         // printf("uzytkownik nie jest zalogowany");
-//     }
-
-//     if (logIn[charToInt((*th_data).idSecond)] == 1)
-//     {
-
-//         int deskryptor = idDeskryptor[charToInt((*th_data).idSecond)];
-
-//         write(deskryptor, (*th_data).message, sizeof((*th_data).message));
-//         printf("Mes: %s\n", (*th_data).message);
-//     }
-//     pthread_exit(NULL);
-// }
-
+// ###!!! DOROBIĆ, ŻE JAK JESTE PONAD 100 znaków to się i tak wyśle, ale w partycjach!
 void handleWrite(struct thread_data_t *sendData)
 {
-    printf("%s\n",sendData->idFirst);
+    //printf("%s\n",sendData->idFirst);
+    char message[100] = "";
+    strcat(message, "#fromId{");
 
     if (logIn[charToInt((*sendData).idSecond)] == 1)
     {
+
         int deskryptor = idDeskryptor[charToInt((*sendData).idSecond)];
 
-        write(deskryptor, (*sendData).message, sizeof((*sendData).message));
-        printf("Mes: %s\n", (*sendData).message);
+        strcat(message, sendData->idFirst);
+        strcat(message, "}");
+
+        strcat(message, "#message{");
+        strcat(message, sendData->message);
+        strcat(message, "}\n");
+        write(deskryptor, message, sizeof(message));
+        printf("Mes: %s\n", message);
     }
 }
 
@@ -134,28 +124,8 @@ void *ReadThreadBehavior(void *t_data)
     printf("%d\n",th_data->nr_deskryptora);
 
     // zanim watek bedzie czekal na info o wiadomosciach, to wysyla odpowedz do zalogowania
-    char c[15];
-    char tc[15];
-    strcat(c, "#yourID{");
-    sprintf(tc, "%d", th_data->id);
-    strcat(c, tc);
-    strcat(c, "}\n");
-    printf("%s\n", c);
-    write((*th_data).nr_deskryptora, c, sizeof(c));
+    whoIs(th_data->id, (*th_data).nr_deskryptora);
 
-    char friends[50];
-    strcat(friends,"#friends{");
-    for(int i=0; i<sizeof(logIn)/sizeof(logIn[0]); i++){
-        if(logIn[i] == 1 && i != th_data->id){
-            sprintf(c, "%d", i);
-            strcat(friends, c);
-            strcat(friends, ";");
-        }
-    }
-    strcat(friends,"}\n");
-    printf("%s\n", friends);
-
-    write((*th_data).nr_deskryptora, friends, sizeof(friends));
 
 
     while (1)
@@ -163,6 +133,14 @@ void *ReadThreadBehavior(void *t_data)
         n = read((*th_data).nr_deskryptora, &bufMes, sizeof(bufMes));
         if (n > 0)
         {
+            char end[4] = "";
+            strncpy(end, bufMes, 4);
+            if(!strcmp("#end", bufMes)){
+                int deskryptor = idDeskryptor[charToInt((*th_data).idFirst)];
+                //write(deskryptor, "#end", sizeof("#end"));
+                break;
+            }
+
             strncpy((*th_data).idFirst, bufMes, 3);
             (*th_data).idFirst[3] = '\0';
             strncpy((*th_data).idSecond, bufMes + 3, 3);
@@ -170,22 +148,21 @@ void *ReadThreadBehavior(void *t_data)
             strncpy((*th_data).message, bufMes + 6, 10);
             (*th_data).message[3] = '\0';
 
-            // printf("Id First: %s\n", (*th_data).idFirst);
-            // printf("Id Sec: %s\n", (*th_data).idSecond);
-            // printf("Id Mes: %s\n", (*th_data).message);
-
             memcpy(sendData->idFirst, th_data->idFirst, sizeof(sendData->idFirst));
-            memcpy(sendData->idSecond, th_data->idSecond, sizeof(sendData->idSecond));
+            memcpy(sendData->idSecond, th_data->idSecond, sizeof(sendData->idSecond));            
             memcpy(sendData->message, th_data->message, sizeof(sendData->message));
-            printf("SendData: %s\n", sendData->message);
+            //printf("SendData: %s\n", sendData->message);
             handleWrite(sendData);
         }
         n = 0;
     }
 
     printf("Desk: %s\n", (*th_data).idFirst);
-    logIn[(*th_data).nr_deskryptora] = 0;
+    logIn[(*th_data).id] = 0;
+    whoIs(-1, (*th_data).nr_deskryptora);
+
     free(t_data);
+    //free(th_data);
     free(sendData);
     pthread_exit(NULL);
 }
@@ -194,7 +171,7 @@ void *ReadThreadBehavior(void *t_data)
 void handleConnection(int connection_socket_descriptor, int id)
 {
     //uchwyt na wątek
-    int create_result;
+    int create_result = 0;
     
     struct thread_data_t *t_data=malloc(sizeof(struct thread_data_t)); //malloc + zwolnienie na końcu (watek klienta)
     pthread_t readThread;

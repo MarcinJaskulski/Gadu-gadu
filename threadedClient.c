@@ -68,17 +68,10 @@ void handleConnection(int connection_socket_descriptor)
       n = read(connection_socket_descriptor, buf, sizeof(buf));
       if (n > 0)
       {
-         printf("Wiadomosc od ziomka: %s\n", buf);
+         printf("%s\n", buf);
       }
    }
 
-   // TODO (przy zadaniu 1) odbieranie -> wyświetlanie albo klawiatura -> wysyłanie
-   //  while(1){
-   //     int n =read(t_data.nr_deskryptora, t_data.wiadomosc2, BUF_SIZE);
-   //     if(n>0){
-   // 	printf("%s\n", t_data.wiadomosc2);
-   //     }
-   //  }
 }
 
 int main(int argc, char *argv[])
