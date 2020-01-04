@@ -58,7 +58,9 @@ int charToInt(char tab[4])
     return res;
 }
 
+// funkcja rozgłasza kto jest obecnie podłaczony do serwera
 void whoIs(int id, int deskryptor){
+    int n = 0;
     char c[15] = "";
     char tc[15] = "";
     strcat(c, "#yourId{");
@@ -66,7 +68,11 @@ void whoIs(int id, int deskryptor){
     strcat(c, tc);
     strcat(c, "}\n");
     printf("%s\n", c);
-    write(deskryptor, c, sizeof(c));
+    n = write(deskryptor, c, sizeof(c));
+
+    if(n < 0){
+        fprintf(stderr, "Niepoprawne wyslanie wiadomosci.\n");
+    }
 
     char friends[50];
     strcat(friends,"#friends{");
@@ -82,15 +88,19 @@ void whoIs(int id, int deskryptor){
 
     for(int i=0; i<sizeof(logIn)/sizeof(logIn[0]); i++){
         if(logIn[i] == 1){
-            write(idDeskryptor[i], friends, sizeof(friends));
+            n = write(idDeskryptor[i], friends, sizeof(friends));
+            if(n < 0){
+                fprintf(stderr, "Niepoprawne wyslanie wiadomosci.\n");
+            }
         }
     }
 }
 
-// ###!!! DOROBIĆ, ŻE JAK JESTE PONAD 100 znaków to się i tak wyśle, ale w partycjach!
+// wysyłanie wiadomości
 void handleWrite(struct thread_data_t *sendData)
 {
     //printf("%s\n",sendData->idFirst);
+    int n = 0;
     char message[100] = "";
     strcat(message, "#fromId{");
 
@@ -105,7 +115,10 @@ void handleWrite(struct thread_data_t *sendData)
         strcat(message, "#message{");
         strcat(message, sendData->message);
         strcat(message, "}\n");
-        write(deskryptor, message, sizeof(message));
+        n = write(deskryptor, message, sizeof(message));
+        if(n < 0){
+            fprintf(stderr, "Niepoprawne wyslanie wiadomosci.\n");
+        }
         printf("Mes: %s\n", message);
     }
 }
@@ -128,29 +141,40 @@ void *ReadThreadBehavior(void *t_data)
     while (1)
     {
         n = read((*th_data).nr_deskryptora, &bufMes, sizeof(bufMes));
+        printf("Mes: %s\n", bufMes);
         if (n > 0)
         {
+            // jesli user sie rozlacza
             char end[4] = "";
             strncpy(end, bufMes, 4);
             if(!strcmp("#end", bufMes)){
-                int deskryptor = idDeskryptor[charToInt((*th_data).idFirst)];
-                //write(deskryptor, "#end", sizeof("#end"));
                 break;
             }
 
+            //printf("SendData0: %s\n", bufMes);
             strncpy((*th_data).idFirst, bufMes, 3);
             (*th_data).idFirst[3] = '\0';
             strncpy((*th_data).idSecond, bufMes + 3, 3);
             (*th_data).idSecond[3] = '\0';
-            strncpy((*th_data).message, bufMes + 6, 10);
-            (*th_data).message[3] = '\0';
+            strncpy((*th_data).message, bufMes + 6, sizeof(bufMes)-6);
+            (*th_data).message[sizeof(bufMes)-6] = '\0';
+
+            //printf("SendData1: %s\n", (*th_data).message);
 
             memcpy(sendData->idFirst, th_data->idFirst, sizeof(sendData->idFirst));
             memcpy(sendData->idSecond, th_data->idSecond, sizeof(sendData->idSecond));            
             memcpy(sendData->message, th_data->message, sizeof(sendData->message));
-            //printf("SendData: %s\n", sendData->message);
+            //printf("SendData2: %s\n", sendData->message);
             handleWrite(sendData);
         }
+        // nastąpiło rozłaczenie
+        if(n == 0){
+            break;
+        }
+        if(n < 0){
+            fprintf(stderr, "Niepoprawny odczyt.\n");
+        }
+
         n = 0;
     }
 
@@ -159,8 +183,8 @@ void *ReadThreadBehavior(void *t_data)
     whoIs(-1, (*th_data).nr_deskryptora);
 
     free(t_data);
-    //free(th_data);
-    free(sendData);
+    free(sendData); 
+    //free(th_data); // wystarczy jedno, bo ta sama komorka pamieci
     pthread_exit(NULL);
 }
 
@@ -170,7 +194,7 @@ void handleConnection(int connection_socket_descriptor, int id)
     //uchwyt na wątek
     int create_result = 0;
     
-    struct thread_data_t *t_data=malloc(sizeof(struct thread_data_t)); //malloc + zwolnienie na końcu (watek klienta)
+    struct thread_data_t *t_data = malloc(sizeof(struct thread_data_t)); //malloc + zwolnienie na końcu (watek klienta)
     pthread_t readThread;
     t_data->nr_deskryptora = connection_socket_descriptor;
     t_data->id = id;
@@ -234,10 +258,12 @@ int main(int argc, char *argv[])
     }
 
     int clientId = 0;
+    int goodRead = 0;
     //accepted client
     while (1)
     {
         connection_socket_descriptor = accept(server_socket_descriptor, NULL, NULL);
+        // 0 - ok; <0 -blad
         if (connection_socket_descriptor < 0)
         {
             fprintf(stderr, "%s: Błąd przy próbie utworzenia gniazda dla połączenia.\n", argv[0]);
@@ -245,15 +271,24 @@ int main(int argc, char *argv[])
         }
 
         //nasłuchiwanie na nowego clienta. Jesli jest nowy to stworzy mu watek
-        read(connection_socket_descriptor, NULL, 0);
+        //goodRead = read(connection_socket_descriptor, NULL, 0);
+
+        // pierwszy wolny id dla kolejnego
+        for(int i=0; i<100; i++){
+            if(logIn[i] == 0){
+                clientId = i;
+                break;
+            }
+        }
+
         printf("Client id: %d\n", clientId);
         logIn[clientId] = 1; //podanie, ze jest zalogowany
 
         idDeskryptor[clientId] = connection_socket_descriptor; //zapisanie w tablicy deskryptorow
 
-
         handleConnection(connection_socket_descriptor, clientId);
-        clientId++;
+
+       
     }
 
     close(server_socket_descriptor);

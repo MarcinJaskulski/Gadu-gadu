@@ -34,6 +34,9 @@ void *ThreadBehavior(void *t_data)
       scanf("%s", (*th_data).message);
       // write((*th_data).nr_deskryptora, (*th_data).idFirst, sizeof((*th_data).idFirst));
       // write((*th_data).nr_deskryptora, (*th_data).idSecond, sizeof((*th_data).idSecond));
+      //strcat((*th_data).message, "\n");
+      printf("%s\n", (*th_data).message);
+      // strncpy((*th_data).message, "001000Hej kup se klej\n", );
       write((*th_data).nr_deskryptora, (*th_data).message, sizeof((*th_data).message));
    }
    pthread_exit(NULL);
