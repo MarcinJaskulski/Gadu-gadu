@@ -20,6 +20,27 @@ int logIn[100]; //main i wskaźnik
 
 int idDeskryptor[100];
 
+//    // --- PAMIEC WSPOLDZIELONA ---
+//    // -- Dla logIn
+//    shmid = shmget(IPC_PRIVATE, 100*sizeof(int), IPC_CREAT|0600);
+//    if (shmid == -1){
+//       perror("Blad: Utworzenie segmentu pamieci wspoldzielonej");
+//       exit(1);
+//    }
+   
+//    buf = (int*)shmat(shmid, NULL, 0);
+//    if (buf == NULL){
+//       perror("Blad: Przylaczenie segmentu pamieci wspoldzielonej");
+//       exit(1);
+//    }
+   
+//    buf[0] = 0; // ilosc wyprodukowanych dziel
+//    buf[1] = 0; // startowa liczba osob w czytelnii
+//    buf[2] = 0; // liczba dziel na polce
+
+
+
+
 //struktura zawierająca dane, które zostaną przekazane do wątku
 struct thread_data_t
 {
@@ -258,10 +279,11 @@ int main(int argc, char *argv[])
     }
 
     int clientId = 0;
-    int goodRead = 0;
+    int busySpace = 0;
     //accepted client
     while (1)
     {
+        busySpace = 0;
         connection_socket_descriptor = accept(server_socket_descriptor, NULL, NULL);
         // 0 - ok; <0 -blad
         if (connection_socket_descriptor < 0)
@@ -274,11 +296,23 @@ int main(int argc, char *argv[])
         //goodRead = read(connection_socket_descriptor, NULL, 0);
 
         // pierwszy wolny id dla kolejnego
-        for(int i=0; i<100; i++){
+        for(int i=0; i<=100; i++){
+            if(i == 100){
+                int n = 0;
+                n = write(connection_socket_descriptor, "#busySpace", sizeof("#busySpace"));
+                if(n < 0){
+                    fprintf(stderr, "Niepoprawne wyslanie wiadomosci.\n");
+                }
+                busySpace =1;
+            }
             if(logIn[i] == 0){
                 clientId = i;
                 break;
             }
+        }
+        if(busySpace==1){
+            busySpace=0;
+            continue;
         }
 
         printf("Client id: %d\n", clientId);
@@ -288,7 +322,6 @@ int main(int argc, char *argv[])
 
         handleConnection(connection_socket_descriptor, clientId);
 
-       
     }
 
     close(server_socket_descriptor);
