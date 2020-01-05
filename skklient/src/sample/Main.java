@@ -40,7 +40,7 @@ public class Main extends Application {
     GridPane sender;
     Button send;
     //data objects
-
+    Boolean firstUpdate;
     Map<Integer, Button> friendsDictionary;
     Map<Button, Integer> friendsDictionaryReverse;
     Map<Integer, List<Label>> friendsMessages;
@@ -73,6 +73,7 @@ public class Main extends Application {
         Thread readThread = new Thread(r);
         readThread.start();
     }
+
     private void setUpLayout(Stage primaryStage) {
         layout = new GridPane();
         layout.setHgap(10);
@@ -106,7 +107,7 @@ public class Main extends Application {
         col1.setPercentWidth(30);
         col2.setPercentWidth(70);
         text = new TextField();
-        text.setOnAction(e->{
+        text.setOnAction(e -> {
             sendMsg();
         });
         text.setPromptText("Wpisz wiadomość");
@@ -119,7 +120,7 @@ public class Main extends Application {
         sender.getColumnConstraints().addAll(col2, col1);
         sender.getRowConstraints().add(row1);
         send = new Button("Wyślij");
-        send.setOnAction(e->{
+        send.setOnAction(e -> {
             sendMsg();
         });
         send.setMaxWidth(Double.MAX_VALUE);
@@ -140,6 +141,7 @@ public class Main extends Application {
             reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
             writer = new PrintWriter(socket.getOutputStream(), true);
             friendsDictionary = new HashMap<Integer, Button>();
+            firstUpdate = true;
             friendsDictionaryReverse = new HashMap<Button, Integer>();
             friendsMessages = new HashMap<Integer, List<Label>>();
             buffer = reader.readLine();
@@ -185,6 +187,10 @@ public class Main extends Application {
                 if (number.equals("")) break;
                 tmp = Integer.parseInt(number);
                 if (tmp != id) {
+                    if (firstUpdate) {
+                        friendId = tmp;
+                        firstUpdate = false;
+                    }
                     friendsList.add(tmp);
                     if (!friendsDictionary.containsKey(tmp)) {
                         friendsDictionary.put(tmp, new Button("znajomy" + tmp.toString()));
@@ -192,17 +198,18 @@ public class Main extends Application {
                         friendsDictionaryReverse.put(new Button("znajomy" + tmp.toString()), tmp);
                         friendsDictionary.get(tmp).setMaxWidth(Double.MAX_VALUE);
                         Integer finalTmp = tmp;
-                        Platform.runLater(
-                                () -> {
+
                         friendsDictionary.get(finalTmp).setOnAction(e -> {
                             friendId = finalTmp;
                             System.out.println(friendId);
-                                        messages.getChildren().clear();
-                                        messages.getChildren().addAll(friendsMessages.get(friendId));
+                            messages.getChildren().clear();
+                            messages.getChildren().addAll(friendsMessages.get(friendId));
 //                            messageBox.setVvalue(1D);
 
                         });
-                        friends.getChildren().add(friendsDictionary.get(finalTmp));
+                        Platform.runLater(
+                                () -> {
+                                    friends.getChildren().add(friendsDictionary.get(finalTmp));
                                 }
                         );
 
@@ -217,11 +224,12 @@ public class Main extends Application {
             if (!friendsList.contains(item)) {
                 Platform.runLater(
                         () -> {
-                friends.getChildren().remove(friendsDictionary.get(item));
-                friendsDictionary.remove(item);
-                friendsMessages.remove(item);
+                            friends.getChildren().remove(friendsDictionary.get(item));
                         }
                 );
+                friendsDictionary.remove(item);
+                friendsMessages.remove(item);
+
             }
         }
     }
@@ -234,37 +242,39 @@ public class Main extends Application {
         Label tmp = new Label(message);
         tmp.setWrapText(true);
         friendsMessages.get(from).add(tmp);
-        if (friendId==from) {
+        if (friendId == from) {
             Platform.runLater(
                     () -> {
                         messages.getChildren().add(tmp);
-                        messageBox.setVvalue(1D);
+//                        messageBox.setVvalue(1D);
                     }
             );
         }
     }
-    private void sendMsg(){
-        String message=text.getText();
-        String msg="";
-        if (!message.isEmpty()){
-            msg+=String.format("%03d",id);
-            msg+=String.format("%03d",friendId);
-            msg+=text.getText();
+
+    private void sendMsg() {
+        String message = text.getText();
+        String msg = "";
+        if (!message.isEmpty()) {
+            msg += String.format("%03d", id);
+            msg += String.format("%03d", friendId);
+            msg += text.getText();
             writer.println(msg);
-            message="Ty: "+message;
+            message = "Ty: " + message;
             Label tmp = new Label(message);
             tmp.setWrapText(true);
             friendsMessages.get(friendId).add(tmp);
-                Platform.runLater(
-                        () -> {
-                            messages.getChildren().add(tmp);
+            Platform.runLater(
+                    () -> {
+                        messages.getChildren().add(tmp);
 //                            messageBox.setVvalue(1D);
-                        }
-                );
+                    }
+            );
 
             text.clear();
         }
     }
+
     public static void main(String[] args) {
         launch(args);
     }
