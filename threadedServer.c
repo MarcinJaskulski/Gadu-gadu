@@ -109,7 +109,7 @@ void handleWrite(struct thread_data_t *sendData, int *logIn, int *idDeskryptor)
     if (logIn[charToInt((*sendData).idSecond)] == 1)
     {
         int deskryptor = idDeskryptor[charToInt((*sendData).idSecond)];
-
+        printf("DESKRYPTOR: %d\n", deskryptor);
         strcat(message, sendData->idFirst);
         strcat(message, "}");
 
@@ -125,16 +125,16 @@ void handleWrite(struct thread_data_t *sendData, int *logIn, int *idDeskryptor)
 }
 
 //funkcja opisującą zachowanie wątku - musi przyjmować argument typu (void *) i zwracać (void *)
-void *ReadThreadBehavior(void *t_data)
+void *ReadThreadBehavior(void *t2_data)
 { 
     pthread_detach(pthread_self());
-    struct thread_data_t *th_data = (struct thread_data_t *)t_data;
+    struct thread_data_t *th_data = (struct thread_data_t *)t2_data;
     struct thread_data_t *sendData = malloc(sizeof(struct thread_data_t));
     int *logIn =th_data->logIn;
     int *idDeskryptor = th_data->idDeskryptor;
     int n = 0;
     char bufMes[1000];
-    printf("%d\n",th_data->nr_deskryptora);
+    printf("Nr deskryptora: %d\n",th_data->nr_deskryptora);
 
     // zanim watek bedzie czekal na info o wiadomosciach, to wysyla odpowedz do zalogowania
     whoIs(th_data->id, (*th_data).nr_deskryptora, logIn, idDeskryptor);
@@ -178,9 +178,10 @@ void *ReadThreadBehavior(void *t_data)
     printf("Desk: %s\n", (*th_data).idFirst);
     logIn[(*th_data).id] = 0;
     whoIs(-1, (*th_data).nr_deskryptora, logIn, idDeskryptor);
-
-    free(t_data);
-    free(sendData); 
+    close(idDeskryptor[(*th_data).id]);
+    idDeskryptor[(*th_data).id] = 0;
+    //free(t2_data);
+    //free(sendData); 
     //free(th_data); // wystarczy jedno, bo ta sama komorka pamieci co t_data
     pthread_exit(NULL);
 }
@@ -190,21 +191,23 @@ void handleConnection(int connection_socket_descriptor, int id, int *logIn, int 
 {
     //uchwyt na wątek
     int create_result = 0;
-    
-    struct thread_data_t *t_data = malloc(sizeof(struct thread_data_t)); //malloc + zwolnienie na końcu (watek klienta)
+    printf("Work0\n");
+    struct thread_data_t t_data; //= malloc(sizeof(struct thread_data_t)); //malloc 
+    printf("Work1!\n");
     pthread_t readThread;
-    t_data->nr_deskryptora = connection_socket_descriptor;
-    t_data->id = id;
-    t_data->logIn = logIn;
-    t_data->idDeskryptor = idDeskryptor;
+    t_data.nr_deskryptora = connection_socket_descriptor;
+    t_data.id = id;
+    t_data.logIn = logIn;
+    t_data.idDeskryptor = idDeskryptor;
 
 
-    create_result = pthread_create(&readThread, NULL, ReadThreadBehavior, (void *)t_data);
+    create_result = pthread_create(&readThread, NULL, ReadThreadBehavior, (void *)&t_data);
     if (create_result)
     {
         printf("Błąd przy próbie utworzenia wątku, kod błędu: %d\n", create_result);
         exit(-1);
     }
+    //free(t_data);
 }
 
 void init(int *logIn, int *idDeskryptor)
@@ -272,8 +275,12 @@ int main(int argc, char *argv[])
         }
 
         // pierwszy wolny id dla kolejnego
-        for(int i=0; i<=100; i++){
-            if(i == 100){
+        for(int i=0; i<=NUMBER_OF_USERS; i++){
+            if(logIn[i] == 0){
+                clientId = i;
+                break;
+            }
+            if(i == NUMBER_OF_USERS){
                 int n = 0;
                 n = write(connection_socket_descriptor, "#busySpace", sizeof("#busySpace"));
                 if(n < 0){
@@ -281,10 +288,7 @@ int main(int argc, char *argv[])
                 }
                 busySpace =1;
             }
-            if(logIn[i] == 0){
-                clientId = i;
-                break;
-            }
+            
         }
         if(busySpace==1){
             busySpace=0;
@@ -293,11 +297,9 @@ int main(int argc, char *argv[])
 
         printf("Client id: %d\n", clientId);
         logIn[clientId] = 1; // podanie, ze jest zalogowany
-
         idDeskryptor[clientId] = connection_socket_descriptor; // zapisanie w tablicy deskryptorow
 
         handleConnection(connection_socket_descriptor, clientId, logIn, idDeskryptor);
-
     }
 
     close(server_socket_descriptor);
