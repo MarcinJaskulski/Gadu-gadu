@@ -100,8 +100,6 @@ void whoIs(int id, int deskryptor, int *logIn, int *idDeskryptor){
             }
         }
     }
-    strcpy(c,"");
-    strcpy(tc,"");
 }
 
 // wysyłanie wiadomości
