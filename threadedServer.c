@@ -32,6 +32,7 @@ struct thread_data_t
     char message[NUMBER_OF_SIGN_IN_MESSAGE];
 };
 
+// potegowanie
 int int_pow(int base, int exp)
 {
     int result = 1;
@@ -45,6 +46,7 @@ int int_pow(int base, int exp)
     return result;
 }
 
+// zamiana char na int
 int charToInt(char tab[4])
 {
     int res = 0;
@@ -55,7 +57,6 @@ int charToInt(char tab[4])
             res = res + int_pow(10, 2 - i) * atoi(&tab[i]);
         }
     }
-
     return res;
 }
 
@@ -131,7 +132,6 @@ void *ReadThreadBehavior(void *t_data)
 {
     pthread_detach(pthread_self());
     struct thread_data_t th_data = *((struct thread_data_t *)t_data);
-    // struct thread_data_t *sendData = malloc(sizeof(struct thread_data_t));
     free(t_data);
 
     int *logIn =th_data.logIn;
@@ -163,10 +163,6 @@ void *ReadThreadBehavior(void *t_data)
             strncpy(th_data.message, bufMes + 6, sizeof(bufMes)-6);
             th_data.message[sizeof(bufMes)-6] = '\0';
 
-            // memcpy(sendData->idFirst, th_data->idFirst, sizeof(sendData->idFirst));
-            // memcpy(sendData->idSecond, th_data->idSecond, sizeof(sendData->idSecond));
-            // memcpy(sendData->message, th_data->message, sizeof(sendData->message));
-
             handleWrite(th_data, logIn, idDeskryptor);
         }
         // nastąpiło rozłaczenie
@@ -183,8 +179,6 @@ void *ReadThreadBehavior(void *t_data)
     logIn[th_data.id] = 0;
     whoIs(-1, th_data.nr_deskryptora, logIn, idDeskryptor);
 
-    // free(t_data);
-    // free(th_data); // wystarczy jedno, bo ta sama komorka pamieci co t_data
     pthread_exit(NULL);
 }
 
@@ -203,10 +197,10 @@ void handleConnection(int connection_socket_descriptor, int id, int *logIn, int 
     t_data->idDeskryptor = idDeskryptor;
 
 
-    create_result = pthread_create(&readThread, NULL, ReadThreadBehavior, /*(void *)*/t_data);
+    create_result = pthread_create(&readThread, NULL, ReadThreadBehavior, t_data);
     if (create_result)
     {
-        printf("Błąd przy próbie utworzenia wątku, kod błędu: %d\n", create_result);
+        fprintf(stderr, "Błąd przy próbie utworzenia wątku, kod błędu: %d\n", create_result);
         exit(-1);
     }
 
@@ -280,7 +274,7 @@ int main(int argc, char *argv[])
         for(int i=0; i<=NUMBER_OF_USERS; i++){
             if(i == NUMBER_OF_USERS){
                 int n = 0;
-                n = write(connection_socket_descriptor, "#busySpace", sizeof("#busySpace"));
+                n = write(connection_socket_descriptor, "#busySpace\n", sizeof("#busySpace\n"));
                 if(n < 0){
                     fprintf(stderr, "Niepoprawne wyslanie wiadomosci.\n");
                 }
@@ -302,7 +296,6 @@ int main(int argc, char *argv[])
         idDeskryptor[clientId] = connection_socket_descriptor; // zapisanie w tablicy deskryptorow
 
         handleConnection(connection_socket_descriptor, clientId, logIn, idDeskryptor);
-
     }
 
     close(server_socket_descriptor);
