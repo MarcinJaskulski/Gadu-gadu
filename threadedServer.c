@@ -75,8 +75,9 @@ void whoIs(int id, int deskryptor, int *logIn, int *idDeskryptor){
     if(n < 0){
         fprintf(stderr, "Niepoprawne wyslanie wiadomosci.\n");
     }
+    
 
-    char friends[50];
+    char friends[50] = "";
     strcat(friends,"#friends{");
 
     for(int i=0; i<NUMBER_OF_USERS; i++){
@@ -88,7 +89,7 @@ void whoIs(int id, int deskryptor, int *logIn, int *idDeskryptor){
     }
 
     strcat(friends,"}\n");
-    printf("%s\n", friends);
+    //printf("%s\n", friends);
 
     for(int i=0; i<NUMBER_OF_USERS; i++){
 
@@ -99,6 +100,8 @@ void whoIs(int id, int deskryptor, int *logIn, int *idDeskryptor){
             }
         }
     }
+    strcpy(c,"");
+    strcpy(tc,"");
 }
 
 // wysyłanie wiadomości
@@ -107,8 +110,6 @@ void handleWrite(struct thread_data_t sendData, int *logIn, int *idDeskryptor)
     int n = 0;
     char message[NUMBER_OF_SIGN_IN_MESSAGE] = " \n";
     strcat(message, "#fromId{");
-
-    printf("Wielkosc tablicy: %ld", sizeof(sendData.message)/sizeof(sendData.message[0])  );
 
     if (logIn[charToInt(sendData.idSecond)] == 1)
     {
@@ -175,8 +176,9 @@ void *ReadThreadBehavior(void *t_data)
         n = 0;
     }
 
-    printf("Desk: %s\n", th_data.idFirst);
     logIn[th_data.id] = 0;
+    idDeskryptor[th_data.id] = 0;
+
     whoIs(-1, th_data.nr_deskryptora, logIn, idDeskryptor);
 
     pthread_exit(NULL);
@@ -187,9 +189,8 @@ void handleConnection(int connection_socket_descriptor, int id, int *logIn, int 
 {
     //uchwyt na wątek
     int create_result = 0;
-    printf("Przed malloc\n");
     struct thread_data_t *t_data = malloc(sizeof(struct thread_data_t)); //malloc + zwolnienie na końcu (watek klienta)
-    printf("Po malloc\n");
+
     pthread_t readThread;
     t_data->nr_deskryptora = connection_socket_descriptor;
     t_data->id = id;
