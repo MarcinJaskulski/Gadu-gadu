@@ -76,7 +76,6 @@ void whoIs(int id, int deskryptor, int *logIn, int *idDeskryptor){
         fprintf(stderr, "Niepoprawne wyslanie wiadomosci.\n");
     }
     
-
     char friends[50] = "";
     strcat(friends,"#friends{");
 
@@ -174,8 +173,9 @@ void *ReadThreadBehavior(void *t_data)
         n = 0;
     }
 
-    logIn[th_data.id] = 0;
+    
     idDeskryptor[th_data.id] = 0;
+    logIn[th_data.id] = 0;
 
     whoIs(-1, th_data.nr_deskryptora, logIn, idDeskryptor);
 
@@ -202,7 +202,6 @@ void handleConnection(int connection_socket_descriptor, int id, int *logIn, int 
         fprintf(stderr, "Błąd przy próbie utworzenia wątku, kod błędu: %d\n", create_result);
         exit(-1);
     }
-
 }
 
 void init(int *logIn, int *idDeskryptor)
