@@ -2,7 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/skklient.iml" filepath="$PROJECT_DIR$/skklient.iml" />
+      <module fileurl="file://$PROJECT_DIR$/klient.iml" filepath="$PROJECT_DIR$/klient.iml" />
     </modules>
   </component>
 </project>

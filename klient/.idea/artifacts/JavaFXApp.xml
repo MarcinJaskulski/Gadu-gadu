@@ -8,7 +8,7 @@
     </properties>
     <root id="root">
       <element id="archive" name="JavaFXApp.jar">
-        <element id="module-output" name="skklient" />
+        <element id="module-output" name="klient" />
       </element>
     </root>
   </artifact>

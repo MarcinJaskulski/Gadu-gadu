@@ -1,6 +1,5 @@
 package sample;
 
-import javafx.scene.control.Label;
 
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
@@ -12,7 +11,7 @@ public class Reader implements Runnable {
     String buffer;
     public Reader(Socket s,Main main){
         try{
-        reader = new BufferedReader(new InputStreamReader(s.getInputStream()));
+            reader = new BufferedReader(new InputStreamReader(s.getInputStream()));
         }
         catch(Exception e){
             System.out.println(e.toString());

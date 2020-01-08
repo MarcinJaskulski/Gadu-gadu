@@ -2,18 +2,13 @@ package sample;
 
 import javafx.application.Application;
 import javafx.application.Platform;
-import javafx.fxml.FXMLLoader;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
-import javafx.geometry.VPos;
-import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.ScrollPane;
-import javafx.scene.control.TextField;
 import javafx.scene.layout.*;
-import javafx.scene.text.Text;
 import javafx.stage.Modality;
 import javafx.stage.Stage;
 
@@ -21,11 +16,8 @@ import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.Socket;
-import java.text.Bidi;
 import java.util.*;
 import java.util.concurrent.Semaphore;
-
-import static java.lang.Thread.sleep;
 
 public class Main extends Application {
     //layout objects
@@ -45,7 +37,6 @@ public class Main extends Application {
     //data objects
     Boolean firstUpdate;
     Map<Integer, Button> friendsDictionary;
-    Map<Button, Integer> friendsDictionaryReverse;
     Map<Integer, List<Label>> friendsMessages;
     String buffer;
     Integer id;
