@@ -18,8 +18,6 @@
 #define NUMBER_OF_USERS 100
 #define NUMBER_OF_SIGN_IN_MESSAGE 150
 
-pthread_mutex_t mutexForUserTab[NUMBER_OF_USERS];
-
 //struktura zawierająca dane, które zostaną przekazane do wątku
 struct thread_data_t
 {
@@ -28,6 +26,7 @@ struct thread_data_t
 
     int *logInTab;
     int *deskryptorTab;
+    pthread_mutex_t *mutexForUserTab;
 
     char idFirst[4];
     char idSecond[4];
@@ -63,7 +62,7 @@ int charToInt(char tab[4])
 }
 
 // funkcja rozgłasza kto jest obecnie podłaczony do serwera
-void whoIs(int id, int deskryptor, int *logInTab, int *deskryptorTab){
+void whoIs(int id, int deskryptor, int *logInTab, int *deskryptorTab, pthread_mutex_t *mutexForUserTab){
     int n = 0;
     char c[15] = "";
     char tc[15] = "";
@@ -94,7 +93,7 @@ void whoIs(int id, int deskryptor, int *logInTab, int *deskryptorTab){
     }
 
     strcat(friends,"}\n");
-    //printf("%s\n", friends);
+    printf("%s\n", friends);
 
     for(int i=0; i<NUMBER_OF_USERS; i++){
 
@@ -110,7 +109,7 @@ void whoIs(int id, int deskryptor, int *logInTab, int *deskryptorTab){
 }
 
 // wysyłanie wiadomości
-void handleWrite(struct thread_data_t sendData, int *logInTab, int *deskryptorTab)
+void handleWrite(struct thread_data_t sendData, int *logInTab, int *deskryptorTab, pthread_mutex_t *mutexForUserTab)
 {
     int n = 0;
     char message[NUMBER_OF_SIGN_IN_MESSAGE] = " \n";
@@ -147,12 +146,13 @@ void *ReadThreadBehavior(void *t_data)
 
     int *logInTab =th_data.logInTab;
     int *deskryptorTab = th_data.deskryptorTab;
+    pthread_mutex_t *mutexForUserTab = th_data.mutexForUserTab;
     int n = 0;
     char bufMes[NUMBER_OF_SIGN_IN_MESSAGE];
     printf("%d\n",th_data.nr_deskryptora);
 
     // zanim watek bedzie czekal na info o wiadomosciach, to wysyla odpowedz do zalogowania
-    whoIs(th_data.id, th_data.nr_deskryptora, logInTab, deskryptorTab);
+    whoIs(th_data.id, th_data.nr_deskryptora, logInTab, deskryptorTab, mutexForUserTab);
 
     while (1)
     {
@@ -174,7 +174,7 @@ void *ReadThreadBehavior(void *t_data)
             strncpy(th_data.message, bufMes + 6, sizeof(bufMes)-6);
             th_data.message[sizeof(bufMes)-6] = '\0';
 
-            handleWrite(th_data, logInTab, deskryptorTab);
+            handleWrite(th_data, logInTab, deskryptorTab, mutexForUserTab);
         }
         // nastąpiło rozłaczenie
         if(n == 0){
@@ -186,17 +186,18 @@ void *ReadThreadBehavior(void *t_data)
         n = 0;
     }
 
-    
+    //jesli przypadkiem zostało rozłączone gdy był zablokowany mutex
+    pthread_mutex_unlock(&mutexForUserTab[th_data.id]);
     deskryptorTab[th_data.id] = 0;
     logInTab[th_data.id] = 0;
 
-    whoIs(-1, th_data.nr_deskryptora, logInTab, deskryptorTab);
+    whoIs(-1, th_data.nr_deskryptora, logInTab, deskryptorTab, mutexForUserTab);
 
     pthread_exit(NULL);
 }
 
 //funkcja obsługująca połączenie z nowym klientem
-void handleConnection(int connection_socket_descriptor, int id, int *logInTab, int *deskryptorTab)
+void handleConnection(int connection_socket_descriptor, int id, int *logInTab, int *deskryptorTab,pthread_mutex_t *mutexForUserTab)
 {
     //uchwyt na wątek
     int create_result = 0;
@@ -207,6 +208,7 @@ void handleConnection(int connection_socket_descriptor, int id, int *logInTab, i
     t_data->id = id;
     t_data->logInTab = logInTab;
     t_data->deskryptorTab = deskryptorTab;
+    t_data->mutexForUserTab = mutexForUserTab;
 
 
     create_result = pthread_create(&readThread, NULL, ReadThreadBehavior, t_data);
@@ -232,7 +234,7 @@ int main(int argc, char *argv[])
     int *deskryptorTab = malloc(NUMBER_OF_USERS * sizeof(int));
     init(logInTab, deskryptorTab);
 
-    
+    pthread_mutex_t *mutexForUserTab = malloc(NUMBER_OF_USERS * sizeof(pthread_mutex_t));
 
     int server_socket_descriptor;
     int connection_socket_descriptor;
@@ -312,7 +314,7 @@ int main(int argc, char *argv[])
 
         deskryptorTab[clientId] = connection_socket_descriptor; // zapisanie w tablicy deskryptorow
 
-        handleConnection(connection_socket_descriptor, clientId, logInTab, deskryptorTab);
+        handleConnection(connection_socket_descriptor, clientId, logInTab, deskryptorTab, mutexForUserTab);
     }
 
     close(server_socket_descriptor);
