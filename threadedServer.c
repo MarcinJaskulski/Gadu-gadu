@@ -72,6 +72,7 @@ void whoIs(int id, int deskryptor, int *logInTab, int *deskryptorTab, pthread_mu
     strcat(c, "}\n");
 
     // jeśli user się rozlączył, to nie może wysłać sobie wiadomości
+
     if(id != -1){
         pthread_mutex_lock(&mutexForUserTab[id]);
         n = write(deskryptor, c, sizeof(c));
@@ -154,6 +155,7 @@ void *ReadThreadBehavior(void *t_data)
     while (1)
     {
         n = read(th_data.nr_deskryptora, &bufMes, sizeof(bufMes));
+
         if (n > 0)
         {
             // jesli user sie rozlacza
