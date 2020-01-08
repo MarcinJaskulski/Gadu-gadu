@@ -14,6 +14,7 @@ import javafx.scene.control.ScrollPane;
 import javafx.scene.control.TextField;
 import javafx.scene.layout.*;
 import javafx.scene.text.Text;
+import javafx.stage.Modality;
 import javafx.stage.Stage;
 
 import java.io.BufferedReader;
@@ -22,6 +23,7 @@ import java.io.PrintWriter;
 import java.net.Socket;
 import java.text.Bidi;
 import java.util.*;
+import java.util.concurrent.Semaphore;
 
 import static java.lang.Thread.sleep;
 
@@ -36,9 +38,10 @@ public class Main extends Application {
     ColumnConstraints col2;
     RowConstraints row1;
     RowConstraints row2;
-    TextField text;
+    LimitTextField text;
     GridPane sender;
     Button send;
+    Semaphore mutex;
     //data objects
     Boolean firstUpdate;
     Map<Integer, Button> friendsDictionary;
@@ -51,25 +54,25 @@ public class Main extends Application {
     Socket socket;
     BufferedReader reader;
     PrintWriter writer;
+    Stage main;
 
     @Override
     public void start(Stage primaryStage) throws Exception {
-
-        setUpLayout(primaryStage);
+        main = primaryStage;
+        setUpLayout(main);
         setUpConnection();
 
-        primaryStage.setOnCloseRequest(e -> {
+        primaryStage.setOnCloseRequest(e -> {//przy zamknięciu programu zamyka deskryptor
             try {
-                writer.print("#end");
                 socket.close();
-                primaryStage.close();
+                main.close();
             } catch (Exception ex) {
 
                 System.out.println(ex.toString());
             }
 
         });
-        Reader r = new Reader(socket, this);
+        Reader r = new Reader(socket, this); //ustawienie wątku czytająceg
         Thread readThread = new Thread(r);
         readThread.start();
     }
@@ -88,16 +91,11 @@ public class Main extends Application {
 
         messages.setSpacing(10);
         messages.setAlignment(Pos.BOTTOM_LEFT);
-//        messages.getChildren().addAll(wiad1,wiad2,wiad3,wiad4);
         messageBox = new ScrollPane();
         messageBox.setContent(messages);
         messageBox.setFitToWidth(true);
         messageBox.vvalueProperty().bind(messages.heightProperty());
-//        wiad1.setWrapText(true);
-//        wiad2.setWrapText(true);
-//        wiad3.setWrapText(true);
-//        wiad4.setWrapText(true);
-        //wiad1.setWrappingWidth(messages.getWidth());
+        mutex = new Semaphore(0);
         col1 = new ColumnConstraints();
         col2 = new ColumnConstraints();
         row1 = new RowConstraints();
@@ -106,7 +104,9 @@ public class Main extends Application {
         row2.setPercentHeight(20);
         col1.setPercentWidth(30);
         col2.setPercentWidth(70);
-        text = new TextField();
+        text = new LimitTextField();
+        text.setMaxLength(100);
+
         text.setOnAction(e -> {
             sendMsg();
         });
@@ -129,7 +129,7 @@ public class Main extends Application {
         sender.add(text, 0, 0);
         sender.add(send, 1, 0);
         layout.add(sender, 1, 1);
-        primaryStage.setTitle("Hello World");
+        primaryStage.setTitle("GG");
         primaryStage.setScene(new Scene(layout, 500, 500));
         primaryStage.show();
 
@@ -137,43 +137,47 @@ public class Main extends Application {
 
     private void setUpConnection() {
         try {
-            socket = new Socket("localhost", 1234);
+            socket = new Socket("localhost", 1234); //połączenie z serwerem
             reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
             writer = new PrintWriter(socket.getOutputStream(), true);
-            friendsDictionary = new HashMap<Integer, Button>();
+            friendsDictionary = new HashMap<Integer, Button>(); //idUżytkownika->przycisk
             firstUpdate = true;
-            friendsDictionaryReverse = new HashMap<Button, Integer>();
-            friendsMessages = new HashMap<Integer, List<Label>>();
-            buffer = reader.readLine();
+            friendsMessages = new HashMap<Integer, List<Label>>(); //idUżytkownika->historia rozmów z nim
+            buffer = reader.readLine(); //sprawdzenie stanu serwera
+            if (buffer.length() >= 10) {
+                if (buffer.substring(0, 10).equals("#busySpace")) {  //jeśli nie ma miejsca, wyświetlany jes alert, a następnie program jest zamykany
+                    Platform.runLater(() -> display());
+
+                }
+            }
             buffer = deleteThrash(buffer);
-            String number = buffer.replaceAll("\\D+", "");
+            String number = buffer.replaceAll("\\D+", ""); //pierwsza wiadomość z id, pozbywamy się nie-cyfr i mamy id
             id = Integer.parseInt(number);
             buffer = reader.readLine();
             buffer = deleteThrash(buffer);
-            updateFriends(buffer);
+            friendId = new Integer(-1); //id użyttkownika, z którym czatujemy aktualnie
+            updateFriends(buffer); //sprawdzamy kto jest na serwerze
         } catch (Exception e) {
             System.out.println(e.toString());
         }
 
     }
 
-    public String deleteThrash(String msg) {
+    public String deleteThrash(String msg) { //pozbycie się śmieci z wiadomości
         int start = -1;
         for (int i = 0; i < msg.length(); i++) {
-            if (msg.charAt(i) == '#') {
+            if (msg.charAt(i) == '#') { //każda wiadomość z serwera zaczyna się od #
                 start = i;
                 break;
             }
         }
         if (start != -1) return msg.substring(start);
         else {
-            System.out.println(msg);
-
             return null;
         }
     }
 
-    public void updateFriends(String buf) {
+    public void updateFriends(String buf) throws InterruptedException {
         String number = "";
         String friendsString = buf.substring(9);
         char c;
@@ -182,61 +186,86 @@ public class Main extends Application {
         for (int i = 0; i < friendsString.length(); i++) {
             c = friendsString.charAt(i);
             if (Character.isDigit(c)) {
-                number += c;
+                number += c; //tworzymy kolejne liczby
             } else {
                 if (number.equals("")) break;
                 tmp = Integer.parseInt(number);
-                if (tmp != id) {
-                    if (firstUpdate) {
+                if (tmp != id) {  //jeśli dana liczba nie jest naszym id
+                    if (firstUpdate) { //ustawiamy friendId jeśli wcześniej nie było
                         friendId = tmp;
                         firstUpdate = false;
                     }
                     friendsList.add(tmp);
                     if (!friendsDictionary.containsKey(tmp)) {
-                        friendsDictionary.put(tmp, new Button("znajomy" + tmp.toString()));
+                        friendsDictionary.put(tmp, new Button("znajomy" + tmp.toString())); //dodajemy przycisk oraz historię rozmów dla nowego użytkownika
                         friendsMessages.put(tmp, new ArrayList<Label>());
-                        friendsDictionaryReverse.put(new Button("znajomy" + tmp.toString()), tmp);
                         friendsDictionary.get(tmp).setMaxWidth(Double.MAX_VALUE);
                         Integer finalTmp = tmp;
 
-                        friendsDictionary.get(finalTmp).setOnAction(e -> {
+                        friendsDictionary.get(finalTmp).setOnAction(e -> { //przy kliknięciu w przycisk zmienia nam się friendId oraz wyświetlana historia rozmów
                             friendId = finalTmp;
-                            System.out.println(friendId);
                             messages.getChildren().clear();
                             messages.getChildren().addAll(friendsMessages.get(friendId));
-//                            messageBox.setVvalue(1D);
-
                         });
-                        Platform.runLater(
+                        Platform.runLater( //dodajemy przycisk do layoutu
                                 () -> {
-                                    friends.getChildren().add(friendsDictionary.get(finalTmp));
+                                    Integer addButton = new Integer(finalTmp);
+
+                                    friends.getChildren().add(friendsDictionary.get(addButton));
                                 }
                         );
-
-
                     }
                 }
                 number = "";
             }
 
         }
-        for (Integer item : friendsDictionary.keySet()) {
+        Iterator<Integer> itr = friendsDictionary.keySet().iterator();
+        while (itr.hasNext()) { //usuwamy nieaktywnych użytkowników
+            Integer item = itr.next();
             if (!friendsList.contains(item)) {
                 Platform.runLater(
                         () -> {
-                            friends.getChildren().remove(friendsDictionary.get(item));
+                            friends.getChildren().remove(friendsDictionary.get(item)); //usuwamy przycisk
+                            mutex.release(1); //synchronizacja layoutu z innymi zmiennymi
                         }
                 );
-                friendsDictionary.remove(item);
-                friendsMessages.remove(item);
+                mutex.acquire(1);
+                if (friendId == item) {
+                    Platform.runLater(
+                            () -> {
+                                messages.getChildren().removeAll(friendsMessages.get(item)); //usuwamy wiadomości jeśli to okno akurat było otwarte
+                                mutex.release(1);
+
+                            }
+                    );
+                    mutex.acquire(1);
+                    friendsMessages.remove(item); //usuwamy wiadomości z pamięci
+                    if (friendsMessages.keySet().toArray().length > 0) {
+                        friendId = (Integer) friendsMessages.keySet().toArray()[0];
+
+                        Platform.runLater(
+                                () -> {
+                                    messages.getChildren().addAll(friendsMessages.get(friendId)); //zmieniamy wyświetlane wiadomości jeśli jest na co zmienić
+
+                                }
+                        );
+                    } else {
+                        friendId = -1;
+                        friendsMessages.remove(item);
+                    }
+
+                }
+                itr.remove(); //usuwamy przycisk z pamięci
+                break;
 
             }
         }
     }
 
-    public void readMsg(String buf) {
+    public void readMsg(String buf) { //odczytaną wiadomość dodajemy do layoutu,jeśli ta rozmowa jest otwarta
         String number = buf.substring(8, 8 + 3);
-        String message = buf.substring(21, buf.length() - 1);
+        String message = buf.substring(21);
         Integer from = Integer.parseInt(number);
         message = "znajomy" + number + ": " + message;
         Label tmp = new Label(message);
@@ -246,32 +275,58 @@ public class Main extends Application {
             Platform.runLater(
                     () -> {
                         messages.getChildren().add(tmp);
-//                        messageBox.setVvalue(1D);
                     }
             );
         }
     }
 
-    private void sendMsg() {
-        String message = text.getText();
-        String msg = "";
-        if (!message.isEmpty()) {
-            msg += String.format("%03d", id);
-            msg += String.format("%03d", friendId);
-            msg += text.getText();
-            writer.println(msg);
-            message = "Ty: " + message;
-            Label tmp = new Label(message);
-            tmp.setWrapText(true);
-            friendsMessages.get(friendId).add(tmp);
-            Platform.runLater(
-                    () -> {
-                        messages.getChildren().add(tmp);
-//                            messageBox.setVvalue(1D);
-                    }
-            );
+    public void display() { //wyświetlanie alertu o zapełnionym serwerze
+        Stage window = new Stage();
+        window.initModality(Modality.APPLICATION_MODAL);
+        window.setTitle("Alert");
+        window.setMinWidth(250);
+        Label text = new Label();
+        text.setText("Serwer jest pełny, spróbuj później");
+        Button close = new Button("Zamknij");
+        close.setOnAction(e -> {
+            try {
+                socket.close();
+            } catch (Exception f) {
+                System.out.println(f.toString());
+            }
+            window.close();
+            main.close();
+        });
+        VBox layout = new VBox();
+        layout.getChildren().addAll(text, close);
+        layout.setAlignment(Pos.CENTER);
+        Scene scene = new Scene(layout, 300, 250);
+        window.setScene(scene);
+        window.showAndWait();
 
-            text.clear();
+    }
+
+    private void sendMsg() {
+        if (friendId != -1) {
+            String message = text.getText(); //pobieramy wiadomość z pola tekstowego
+            String msg = "";
+            if (!message.isEmpty()) { // jeśli nie jest pusta, doklejamy informacje dla serwera
+                msg += String.format("%03d", id);
+                msg += String.format("%03d", friendId);
+                msg += text.getText();
+                writer.println(msg);
+                message = "Ty: " + message;
+                Label tmp = new Label(message);
+                tmp.setWrapText(true);
+                friendsMessages.get(friendId).add(tmp); //dodajemy do historii rozmów
+                Platform.runLater(
+                        () -> {
+                            messages.getChildren().add(tmp);
+                        }
+                );
+
+                text.clear();
+            }
         }
     }
 

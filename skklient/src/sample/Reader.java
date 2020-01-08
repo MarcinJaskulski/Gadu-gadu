@@ -22,12 +22,13 @@ public class Reader implements Runnable {
     @Override
     public void run() {
         try {
-            while (true) {
+            while (true) { //czytanie wiadomości z serwera i wywoływanie odpowiedniej funkcji w main
                 buffer = reader.readLine();
 
                 buffer = main.deleteThrash(buffer);
                 if(buffer==null) continue;
                 System.out.println(buffer);
+
                 if(buffer.length()>=8) {
                     if (buffer.substring(0, 8).equals("#friends")) {
                         main.updateFriends(buffer);
