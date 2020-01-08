@@ -18,14 +18,16 @@
 #define NUMBER_OF_USERS 100
 #define NUMBER_OF_SIGN_IN_MESSAGE 150
 
+pthread_mutex_t mutexForUserTab[NUMBER_OF_USERS];
+
 //struktura zawierająca dane, które zostaną przekazane do wątku
 struct thread_data_t
 {
     int id;
     int nr_deskryptora;
 
-    int *logIn;
-    int *idDeskryptor;
+    int *logInTab;
+    int *deskryptorTab;
 
     char idFirst[4];
     char idSecond[4];
@@ -61,7 +63,7 @@ int charToInt(char tab[4])
 }
 
 // funkcja rozgłasza kto jest obecnie podłaczony do serwera
-void whoIs(int id, int deskryptor, int *logIn, int *idDeskryptor){
+void whoIs(int id, int deskryptor, int *logInTab, int *deskryptorTab){
     int n = 0;
     char c[15] = "";
     char tc[15] = "";
@@ -71,16 +73,20 @@ void whoIs(int id, int deskryptor, int *logIn, int *idDeskryptor){
     strcat(c, "}\n");
     printf("%s\n", c);
 
-    n = write(deskryptor, c, sizeof(c));
-    if(n < 0){
-        fprintf(stderr, "Niepoprawne wyslanie wiadomosci.\n");
+    if(id != -1){
+        pthread_mutex_lock(&mutexForUserTab[id]);
+        n = write(deskryptor, c, sizeof(c));
+        pthread_mutex_unlock(&mutexForUserTab[id]);
+        if(n < 0){
+            fprintf(stderr, "Niepoprawne wyslanie wiadomosci.\n");
+        }
     }
     
     char friends[50] = "";
     strcat(friends,"#friends{");
 
     for(int i=0; i<NUMBER_OF_USERS; i++){
-        if(logIn[i] == 1){
+        if(logInTab[i] == 1){
             sprintf(c, "%d", i);
             strcat(friends, c);
             strcat(friends, ";");
@@ -92,8 +98,10 @@ void whoIs(int id, int deskryptor, int *logIn, int *idDeskryptor){
 
     for(int i=0; i<NUMBER_OF_USERS; i++){
 
-        if(logIn[i] == 1){
-            n = write(idDeskryptor[i], friends, sizeof(friends));
+        if(logInTab[i] == 1){
+            pthread_mutex_lock(&mutexForUserTab[i]);
+            n = write(deskryptorTab[i], friends, sizeof(friends));
+            pthread_mutex_unlock(&mutexForUserTab[i]);
             if(n < 0){
                 fprintf(stderr, "Niepoprawne wyslanie wiadomosci.\n");
             }
@@ -102,22 +110,27 @@ void whoIs(int id, int deskryptor, int *logIn, int *idDeskryptor){
 }
 
 // wysyłanie wiadomości
-void handleWrite(struct thread_data_t sendData, int *logIn, int *idDeskryptor)
+void handleWrite(struct thread_data_t sendData, int *logInTab, int *deskryptorTab)
 {
     int n = 0;
     char message[NUMBER_OF_SIGN_IN_MESSAGE] = " \n";
     strcat(message, "#fromId{");
 
-    if (logIn[charToInt(sendData.idSecond)] == 1)
+    if (logInTab[charToInt(sendData.idSecond)] == 1)
     {
-        int deskryptor = idDeskryptor[charToInt(sendData.idSecond)];
+        int idRecipient = charToInt(sendData.idSecond);
+        int deskryptor = deskryptorTab[idRecipient];
 
         strcat(message, sendData.idFirst);
         strcat(message, "}");
         strcat(message, "#message{");
         strcat(message, sendData.message);
         strcat(message, "}\n");
+
+        pthread_mutex_lock(&mutexForUserTab[idRecipient]);
         n = write(deskryptor, message, sizeof(message));
+        pthread_mutex_unlock(&mutexForUserTab[idRecipient]);
+
         if(n < 0){
             fprintf(stderr, "Niepoprawne wyslanie wiadomosci.\n");
         }
@@ -132,14 +145,14 @@ void *ReadThreadBehavior(void *t_data)
     struct thread_data_t th_data = *((struct thread_data_t *)t_data);
     free(t_data);
 
-    int *logIn =th_data.logIn;
-    int *idDeskryptor = th_data.idDeskryptor;
+    int *logInTab =th_data.logInTab;
+    int *deskryptorTab = th_data.deskryptorTab;
     int n = 0;
     char bufMes[NUMBER_OF_SIGN_IN_MESSAGE];
     printf("%d\n",th_data.nr_deskryptora);
 
     // zanim watek bedzie czekal na info o wiadomosciach, to wysyla odpowedz do zalogowania
-    whoIs(th_data.id, th_data.nr_deskryptora, logIn, idDeskryptor);
+    whoIs(th_data.id, th_data.nr_deskryptora, logInTab, deskryptorTab);
 
     while (1)
     {
@@ -161,7 +174,7 @@ void *ReadThreadBehavior(void *t_data)
             strncpy(th_data.message, bufMes + 6, sizeof(bufMes)-6);
             th_data.message[sizeof(bufMes)-6] = '\0';
 
-            handleWrite(th_data, logIn, idDeskryptor);
+            handleWrite(th_data, logInTab, deskryptorTab);
         }
         // nastąpiło rozłaczenie
         if(n == 0){
@@ -174,16 +187,16 @@ void *ReadThreadBehavior(void *t_data)
     }
 
     
-    idDeskryptor[th_data.id] = 0;
-    logIn[th_data.id] = 0;
+    deskryptorTab[th_data.id] = 0;
+    logInTab[th_data.id] = 0;
 
-    whoIs(-1, th_data.nr_deskryptora, logIn, idDeskryptor);
+    whoIs(-1, th_data.nr_deskryptora, logInTab, deskryptorTab);
 
     pthread_exit(NULL);
 }
 
 //funkcja obsługująca połączenie z nowym klientem
-void handleConnection(int connection_socket_descriptor, int id, int *logIn, int *idDeskryptor)
+void handleConnection(int connection_socket_descriptor, int id, int *logInTab, int *deskryptorTab)
 {
     //uchwyt na wątek
     int create_result = 0;
@@ -192,8 +205,8 @@ void handleConnection(int connection_socket_descriptor, int id, int *logIn, int 
     pthread_t readThread;
     t_data->nr_deskryptora = connection_socket_descriptor;
     t_data->id = id;
-    t_data->logIn = logIn;
-    t_data->idDeskryptor = idDeskryptor;
+    t_data->logInTab = logInTab;
+    t_data->deskryptorTab = deskryptorTab;
 
 
     create_result = pthread_create(&readThread, NULL, ReadThreadBehavior, t_data);
@@ -204,20 +217,22 @@ void handleConnection(int connection_socket_descriptor, int id, int *logIn, int 
     }
 }
 
-void init(int *logIn, int *idDeskryptor)
+void init(int *logInTab, int *deskryptorTab)
 {
     for (int i = 0; i < NUMBER_OF_USERS; i++)
     {
-        logIn[i] = 0;
-        idDeskryptor[i] = 0;
+        logInTab[i] = 0;
+        deskryptorTab[i] = 0;
     }
 }
 
 int main(int argc, char *argv[])
 {
-    int *logIn = malloc(NUMBER_OF_USERS * sizeof(int));
-    int *idDeskryptor = malloc(NUMBER_OF_USERS * sizeof(int));
-    init(logIn, idDeskryptor);
+    int *logInTab = malloc(NUMBER_OF_USERS * sizeof(int));
+    int *deskryptorTab = malloc(NUMBER_OF_USERS * sizeof(int));
+    init(logInTab, deskryptorTab);
+
+    
 
     int server_socket_descriptor;
     int connection_socket_descriptor;
@@ -272,13 +287,17 @@ int main(int argc, char *argv[])
         for(int i=0; i<=NUMBER_OF_USERS; i++){
             if(i == NUMBER_OF_USERS){
                 int n = 0;
+
+                pthread_mutex_lock(&mutexForUserTab[clientId]);
                 n = write(connection_socket_descriptor, "#busySpace\n", sizeof("#busySpace\n"));
+                pthread_mutex_unlock(&mutexForUserTab[clientId]);
+
                 if(n < 0){
                     fprintf(stderr, "Niepoprawne wyslanie wiadomosci.\n");
                 }
                 busySpace =1;
             }
-            if(logIn[i] == 0){
+            if(logInTab[i] == 0){
                 clientId = i;
                 break;
             }
@@ -289,17 +308,17 @@ int main(int argc, char *argv[])
         }
 
         printf("Client id: %d\n", clientId);
-        logIn[clientId] = 1; // podanie, ze jest zalogowany
+        logInTab[clientId] = 1; // podanie, ze jest zalogowany
 
-        idDeskryptor[clientId] = connection_socket_descriptor; // zapisanie w tablicy deskryptorow
+        deskryptorTab[clientId] = connection_socket_descriptor; // zapisanie w tablicy deskryptorow
 
-        handleConnection(connection_socket_descriptor, clientId, logIn, idDeskryptor);
+        handleConnection(connection_socket_descriptor, clientId, logInTab, deskryptorTab);
     }
 
     close(server_socket_descriptor);
 
-    free(logIn);
-    free(idDeskryptor);
+    free(logInTab);
+    free(deskryptorTab);
 
     return (0);
 }
