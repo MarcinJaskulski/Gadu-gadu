@@ -8,6 +8,7 @@ import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.ScrollPane;
+import javafx.scene.control.TextField;
 import javafx.scene.layout.*;
 import javafx.stage.Modality;
 import javafx.stage.Stage;
@@ -128,7 +129,7 @@ public class Main extends Application {
 
     private void setUpConnection() {
         try {
-            socket = new Socket("localhost", 1234); //połączenie z serwerem
+            connect();
             reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
             writer = new PrintWriter(socket.getOutputStream(), true);
             friendsDictionary = new HashMap<Integer, Button>(); //idUżytkownika->przycisk
@@ -296,6 +297,45 @@ public class Main extends Application {
         window.showAndWait();
 
     }
+    public void connect(){
+        Stage window = new Stage();
+        window.initModality(Modality.APPLICATION_MODAL);
+        window.setTitle("Witaj");
+        window.setMinWidth(250);
+        Label text = new Label();
+        Label fail=new Label();
+        fail.setText("Dane nieprawidłowe");
+        text.setText("Podaj nazwę serwera i port:");
+        TextField host=new TextField();
+        TextField port=new TextField();
+        host.setPromptText("Wpisz nazwę serwera");
+        host.setAlignment(Pos.CENTER_LEFT);
+        port.setPromptText("Wpisz numer portu");
+        port.setAlignment(Pos.CENTER_LEFT);
+        Button submit = new Button("Połącz");
+        VBox layout = new VBox();
+        layout.setSpacing(5);
+        layout.getChildren().addAll(text, host,port,submit);
+        layout.setAlignment(Pos.CENTER);
+        submit.setOnAction(e->{
+            try {
+                socket=new Socket(host.getText(), Integer.parseInt(port.getText()));
+                window.close();
+            }
+            catch (Exception f){
+                if(!layout.getChildren().contains(fail))
+                layout.getChildren().add(fail);
+            }
+        });
+
+        Scene scene = new Scene(layout, 300, 250);
+        window.setOnCloseRequest(e->{
+            main.close();
+        });
+        window.setScene(scene);
+        window.showAndWait();
+
+    }
 
     private void sendMsg() {
         if (friendId != -1) {
@@ -320,7 +360,6 @@ public class Main extends Application {
             }
         }
     }
-
     public static void main(String[] args) {
         launch(args);
     }
