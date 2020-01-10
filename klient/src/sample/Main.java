@@ -12,7 +12,6 @@ import javafx.scene.control.TextField;
 import javafx.scene.layout.*;
 import javafx.stage.Modality;
 import javafx.stage.Stage;
-
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
@@ -53,16 +52,13 @@ public class Main extends Application {
         main = primaryStage;
         setUpLayout(main);
         setUpConnection();
-
         primaryStage.setOnCloseRequest(e -> {//przy zamknięciu programu zamyka deskryptor
             try {
                 socket.close();
                 main.close();
             } catch (Exception ex) {
-
                 System.out.println(ex.toString());
             }
-
         });
         Reader r = new Reader(socket, this); //ustawienie wątku czytająceg
         Thread readThread = new Thread(r);
@@ -77,10 +73,8 @@ public class Main extends Application {
         friends = new VBox();
         znajomi = new ScrollPane();
         znajomi.setContent(friends);
-
         messages = new VBox();
         znajomi.setFitToWidth(true);
-
         messages.setSpacing(10);
         messages.setAlignment(Pos.BOTTOM_LEFT);
         messageBox = new ScrollPane();
@@ -98,7 +92,6 @@ public class Main extends Application {
         col2.setPercentWidth(70);
         text = new LimitTextField();
         text.setMaxLength(100);
-
         text.setOnAction(e -> {
             sendMsg();
         });
@@ -124,7 +117,6 @@ public class Main extends Application {
         primaryStage.setTitle("GG");
         primaryStage.setScene(new Scene(layout, 500, 500));
         primaryStage.show();
-
     }
 
     private void setUpConnection() {
@@ -139,7 +131,6 @@ public class Main extends Application {
             if (buffer.length() >= 10) {
                 if (buffer.substring(0, 10).equals("#busySpace")) {  //jeśli nie ma miejsca, wyświetlany jes alert, a następnie program jest zamykany
                     Platform.runLater(() -> display());
-
                 }
             }
             buffer = deleteThrash(buffer);
@@ -152,7 +143,6 @@ public class Main extends Application {
         } catch (Exception e) {
             System.out.println(e.toString());
         }
-
     }
 
     public String deleteThrash(String msg) { //pozbycie się śmieci z wiadomości
@@ -193,7 +183,6 @@ public class Main extends Application {
                         friendsMessages.put(tmp, new ArrayList<Label>());
                         friendsDictionary.get(tmp).setMaxWidth(Double.MAX_VALUE);
                         Integer finalTmp = tmp;
-
                         friendsDictionary.get(finalTmp).setOnAction(e -> { //przy kliknięciu w przycisk zmienia nam się friendId oraz wyświetlana historia rozmów
                             friendId = finalTmp;
                             messages.getChildren().clear();
@@ -210,7 +199,6 @@ public class Main extends Application {
                 }
                 number = "";
             }
-
         }
         Iterator<Integer> itr = friendsDictionary.keySet().iterator();
         while (itr.hasNext()) { //usuwamy nieaktywnych użytkowników
@@ -228,29 +216,24 @@ public class Main extends Application {
                             () -> {
                                 messages.getChildren().removeAll(friendsMessages.get(item)); //usuwamy wiadomości jeśli to okno akurat było otwarte
                                 mutex.release(1);
-
                             }
                     );
                     mutex.acquire(1);
                     friendsMessages.remove(item); //usuwamy wiadomości z pamięci
                     if (friendsMessages.keySet().toArray().length > 0) {
                         friendId = (Integer) friendsMessages.keySet().toArray()[0];
-
                         Platform.runLater(
                                 () -> {
                                     messages.getChildren().addAll(friendsMessages.get(friendId)); //zmieniamy wyświetlane wiadomości jeśli jest na co zmienić
-
                                 }
                         );
                     } else {
                         friendId = -1;
                         friendsMessages.remove(item);
                     }
-
                 }
                 itr.remove(); //usuwamy przycisk z pamięci
                 break;
-
             }
         }
     }
@@ -295,8 +278,8 @@ public class Main extends Application {
         Scene scene = new Scene(layout, 300, 250);
         window.setScene(scene);
         window.showAndWait();
-
     }
+
     public void connect(){
         Stage window = new Stage();
         window.initModality(Modality.APPLICATION_MODAL);
@@ -327,14 +310,12 @@ public class Main extends Application {
                 layout.getChildren().add(fail);
             }
         });
-
         Scene scene = new Scene(layout, 300, 250);
         window.setOnCloseRequest(e->{
             main.close();
         });
         window.setScene(scene);
         window.showAndWait();
-
     }
 
     private void sendMsg() {
@@ -355,11 +336,11 @@ public class Main extends Application {
                             messages.getChildren().add(tmp);
                         }
                 );
-
                 text.clear();
             }
         }
     }
+
     public static void main(String[] args) {
         launch(args);
     }

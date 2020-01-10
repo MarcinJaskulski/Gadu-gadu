@@ -34,9 +34,7 @@ public class LimitTextField extends TextField { //TextField z ograniczoną pojem
         }
         else {
             String currentText = this.getText() == null ? "" : this.getText();
-
             String finalText = currentText.substring(0, start) + insertedText + currentText.substring(end);
-
             int numberOfexceedingCharacters = finalText.length() - this.getMaxLength();
             if (numberOfexceedingCharacters <= 0) {
                 // Normal behavior
@@ -47,7 +45,6 @@ public class LimitTextField extends TextField { //TextField z ograniczoną pojem
                         0,
                         insertedText.length() - numberOfexceedingCharacters
                 );
-
                 super.replaceText(start, end, cutInsertedText);
             }
         }
