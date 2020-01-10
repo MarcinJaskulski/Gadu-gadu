@@ -1,3 +1,9 @@
+Pliki projektowe:
+-klient
+-threadedServer.c
+-SK2 - sprawozdanie.pdf
+
+
 init
 git checkout -b <nazwa gałęzi>
 git add . //wszystkie
